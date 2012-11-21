@@ -8,13 +8,17 @@
 
 namespace SkreenHouseFactory\twitterBotBundle\Command;
 
+require('%kernel.root_dir%/../vendor/twitteroauth/twitteroauth/twitteroauth.php');
+
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Goutte\Client;
+//use Goutte\Client;
 use TwitterOAuth;
+
+use SkreenHouseFactory\v3Bundle\Api\ApiManager;
 
 class ReplayCommand extends Command {
 
@@ -99,7 +103,7 @@ class ReplayCommand extends Command {
         'status' => $message
     ));
 
-    print_r($status);
+    //print_r($status);
 
   }
 
@@ -112,22 +116,28 @@ class ReplayCommand extends Command {
     $api = 'http://api.myskreen.com/api/1';
     $url = $api . '/hashtag/program/' . $hashtag . '.json?since=1351750285';
     $this->output->writeln($url);
-    $client = new Client();
-    $client->request('GET', $url);
-    $response = $client->getResponse()->getContent();
+    //$client = new Client();
+    //$client->request('GET', $url);
+    //$response = $client->getResponse()->getContent();
     // Parse reponse json to stdclass.
-    $response = json_decode($response);
+    //$response = json_decode($response);
+    $this->container = $this->getApplication()->getKernel()->getContainer();
+    $api   = new ApiManager($this->container->getParameter('kernel.environment'), '.json');
+    $response = $api->fetch('hashtag/program/' . $hashtag, array(
+                  'since' => '1351750285'
+              ));
+    
     //print_r($response);
     return $response;
   }
 
   protected function callApiTwitter() {
-    $token_credentials = [
+    $token_credentials = array(
         'consumer_key' => 'JSuauKd6CCPrURhSXn3hWQ',
         'consumer_secret' => 'nfY0OE20cEbyx54e83e72dTh2zFqPd3sUaS0k00IP0',
         'oauth_token' => '944336262-Xvw2ooHGK6CqipizpH1tgW5xBX6TNqUDChRsRHby',
         'oauth_token_secret' => '3kPZjKJhcHUY3Dmb3qbTApXGgL9GTR6jqFnjdBvIRc'
-    ];
+    );
 
     try {
       $connection = new TwitterOAuth(
