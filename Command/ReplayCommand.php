@@ -62,7 +62,9 @@ class ReplayCommand extends Command {
 
     $tweets = $twitter->get('search/tweets', array(
         'q' => 'to:myskreen',
-        'include_entities' => true
+        'include_entities' => true,
+        'count' => 100,
+        'since' => date('Y-m-d', time()-8*24*3600)
             ));
 
     foreach ($tweets->statuses as $tweet) {
@@ -89,7 +91,7 @@ class ReplayCommand extends Command {
           $this->sendResponse($id, $rettweet->user->screen_name, $result->tweet);
         }
       } else {
-        $output->writeln($result->error . ' : ' . $hashtag);
+        $output->writeln($result->error . ' : ' . $tweet['hashtag']);
       }
     }
   }
@@ -103,7 +105,7 @@ class ReplayCommand extends Command {
         'status' => $message
     ));
 
-    //print_r($status);
+    print_r($status);
 
   }
 
@@ -124,7 +126,7 @@ class ReplayCommand extends Command {
     $this->container = $this->getApplication()->getKernel()->getContainer();
     $api   = new ApiManager($this->container->getParameter('kernel.environment'), '.json');
     $response = $api->fetch('hashtag/program/' . $hashtag, array(
-                  'since' => '1351750285'
+                  'since' => time() - 8*24*3600
               ));
     
     //print_r($response);
