@@ -82,12 +82,15 @@ class ReplayCommand extends Command {
         // Search for retweet
         //statuses/retweets/:id.json        
         $rettweets = $twitter->get('statuses/retweets/' . $id);
-                
+
         $this->sendResponse($id, $tweet['username'], $result->tweet);
         
         // Reply to users.
         foreach ($rettweets as $rettweet) {
           $output->writeln("User : " . $rettweet->user->screen_name);
+          
+          
+          $result_rt = $this->callApiMyskreen($tweet['hashtag'], $rettweet->user->screen_name);
           $this->sendResponse($id, $rettweet->user->screen_name, $result->tweet);
         }
       } else {
@@ -97,7 +100,7 @@ class ReplayCommand extends Command {
   }
 
   protected function sendResponse($id,$user,$text) {
-    $message = $user.' '.mb_strcut(sprintf("@%s %s",$user,$text), 0, 139, 'UTF-8');
+    $message = mb_strcut(sprintf("@%s %s",$user,$text), 0, 139, 'UTF-8');
     $this->output->writeln("Send response : " . $message);
 
     $status = $this->tweeter->post('statuses/update', array(
@@ -114,10 +117,10 @@ class ReplayCommand extends Command {
    * @param string $hashtag
    * @return type
    */
-  protected function callApiMyskreen($hashtag) {
+  protected function callApiMyskreen($hashtag, $user=null) {
     $since = time() - 8*24*3600;
     $api = 'http://api.myskreen.com/api/1';
-    $url = $api . '/hashtag/program/' . $hashtag . '.json?since='.$since;
+    $url = $api . '/hashtag/program/' . $hashtag . '.json?since='.$since.'&user='.$user;
     $this->output->writeln($url);
     //$client = new Client();
     //$client->request('GET', $url);
@@ -127,7 +130,8 @@ class ReplayCommand extends Command {
     $this->container = $this->getApplication()->getKernel()->getContainer();
     $api   = new ApiManager($this->container->getParameter('kernel.environment'), '.json');
     $response = $api->fetch('hashtag/program/' . $hashtag, array(
-                  'since' => $since
+                  'since' => $since,
+                  'user' => $user
               ));
     //echo "\n\n".$api->url;
     //print_r($response);
