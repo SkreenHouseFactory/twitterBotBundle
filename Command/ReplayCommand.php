@@ -97,7 +97,7 @@ class ReplayCommand extends Command {
   }
 
   protected function sendResponse($id,$user,$text) {
-    $message = mb_strcut(sprintf("@%s %s",$user,$text), 0, 139, 'UTF-8');
+    $message = $user.' '.mb_strcut(sprintf("@%s %s",$user,$text), 0, 139, 'UTF-8');
     $this->output->writeln("Send response : " . $message);
 
     $status = $this->tweeter->post('statuses/update', array(
@@ -115,8 +115,9 @@ class ReplayCommand extends Command {
    * @return type
    */
   protected function callApiMyskreen($hashtag) {
+    $since = time() - 8*24*3600;
     $api = 'http://api.myskreen.com/api/1';
-    $url = $api . '/hashtag/program/' . $hashtag . '.json?since=1351750285';
+    $url = $api . '/hashtag/program/' . $hashtag . '.json?since='.$since;
     $this->output->writeln($url);
     //$client = new Client();
     //$client->request('GET', $url);
@@ -126,9 +127,9 @@ class ReplayCommand extends Command {
     $this->container = $this->getApplication()->getKernel()->getContainer();
     $api   = new ApiManager($this->container->getParameter('kernel.environment'), '.json');
     $response = $api->fetch('hashtag/program/' . $hashtag, array(
-                  'since' => time() - 8*24*3600
+                  'since' => $since
               ));
-    
+    //echo "\n\n".$api->url;
     //print_r($response);
     return $response;
   }
