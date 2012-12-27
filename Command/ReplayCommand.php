@@ -64,7 +64,7 @@ class ReplayCommand extends Command {
         'q' => 'to:myskreen',
         'include_entities' => true,
         'count' => 100,
-        'since' => date('Y-m-d', time()-8*24*3600)
+        'since' => date('Y-m-d', time()-2*24*3600)
             ));
 
     foreach ($tweets->statuses as $tweet) {
