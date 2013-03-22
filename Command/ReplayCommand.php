@@ -65,7 +65,7 @@ class ReplayCommand extends Command {
         'include_entities' => true,
         'count' => 100,
         'since' => date('Y-m-d', time()-2*24*3600)
-            ));
+    ));
 
     foreach ($tweets->statuses as $tweet) {
       $hashtags = $tweet->entities->hashtags;
