@@ -22,145 +22,143 @@ use SkreenHouseFactory\v3Bundle\Api\ApiManager;
 
 class ReplayCommand extends Command {
 
-  /**
-   *
-   * @var \Symfony\Component\Console\Output\OutputInterface; 
-   */
-  protected $output;
+	/**
+	 *
+	 * @var \Symfony\Component\Console\Output\OutputInterface; 
+	 */
+	protected $output;
 
-  /**
-   *
-   * @var array 
-   */
-  protected $hashtags = array();
-  /**
-   *
-   * @var Object (twitter api)
-   */
-  protected $tweeter;
-  
-  protected function configure() {
-    $this
-            ->setName('myskreen:replay')
-            ->setDescription('Replay to tweet from users')
-    /*
-      ->addArgument(
-      // Add arguments here
-      )
-      ->addOption(
-      // Add option here
-      )
-     * 
-     */
-    ;
-  }
+	/**
+	 *
+	 * @var array 
+	 */
+	protected $hashtags = array();
+	/**
+	 *
+	 * @var Object (twitter api)
+	 */
+	protected $tweeter;
+	
+	protected function configure() {
+		$this->setName('myskreen:replay')
+				 ->setDescription('Replay to tweet from users')
+				 //->addArgument(
+					// Add arguments here
+					//)
+				 ->addOption(
+					// Add option here
+          'since',
+          2*24*3600,
+          InputOption::VALUE_OPTIONAL,
+          'If set, the task will use this value'
+				);
+	}
 
-  protected function execute(InputInterface $input, OutputInterface $output) {
-    $this->output = $output;
+	protected function execute(InputInterface $input, OutputInterface $output) {
+		$this->output = $output;
+		$this->output->writeln("Since : " . $input->getOption('since'));
+		$twitter = $this->tweeter = $this->callApiTwitter();
+		$tweets = $twitter->get('search/tweets', array(
+				'q' => 'to:myskreen',
+				'include_entities' => true,
+				'count' => 100,
+				'since' => date('Y-m-d', time() - $input->getOption('since'))
+		));
 
-    $twitter = $this->tweeter = $this->callApiTwitter();
+		foreach ($tweets->statuses as $tweet) {
+			$hashtags = $tweet->entities->hashtags;
+			foreach ($hashtags as $hashtag) {
+				$output->writeln("Found a hashtag : " . $hashtag->text);
+				$this->hashtags[$tweet->id] = array('username' => $tweet->user->screen_name, 'hashtag' => $hashtag->text);
+			}
+		}
 
-    $tweets = $twitter->get('search/tweets', array(
-        'q' => 'to:myskreen',
-        'include_entities' => true,
-        'count' => 100,
-        'since' => date('Y-m-d', time()-2*24*3600)
-    ));
+		$users_to_reply = array();
+		foreach ($this->hashtags as $id => $tweet) {
+			$result = $this->callApiMyskreen($tweet['hashtag']);
+			if ($result->success) {
+				// Search for retweet
+				//statuses/retweets/:id.json				
+				$rettweets = $twitter->get('statuses/retweets/' . $id);
 
-    foreach ($tweets->statuses as $tweet) {
-      $hashtags = $tweet->entities->hashtags;
-      foreach ($hashtags as $hashtag) {
-        $output->writeln("Found a hashtag : " . $hashtag->text);
-        $this->hashtags[$tweet->id] = array('username' => $tweet->user->screen_name, 'hashtag' => $hashtag->text);
-      }
-    }
+				$this->sendResponse($id, $tweet['username'], $result->tweet);
+				
+				// Reply to users.
+				foreach ($rettweets as $rettweet) {
+					$output->writeln("User : " . $rettweet->user->screen_name);
+					
+					
+					$result_rt = $this->callApiMyskreen($tweet['hashtag'], $rettweet->user->screen_name);
+					$this->sendResponse($id, $rettweet->user->screen_name, $result->tweet);
+				}
+			} else {
+				$output->writeln($result->error . ' : ' . $tweet['hashtag']);
+			}
+		}
+	}
 
-    $users_to_reply = array();
-    foreach ($this->hashtags as $id => $tweet) {
-      $result = $this->callApiMyskreen($tweet['hashtag']);
-      if ($result->success) {
-        // Search for retweet
-        //statuses/retweets/:id.json        
-        $rettweets = $twitter->get('statuses/retweets/' . $id);
+	protected function sendResponse($id,$user,$text) {
+		$message = mb_strcut(sprintf("@%s %s",$user,$text), 0, 139, 'UTF-8');
+		$this->output->writeln("Send response : " . $message);
 
-        $this->sendResponse($id, $tweet['username'], $result->tweet);
-        
-        // Reply to users.
-        foreach ($rettweets as $rettweet) {
-          $output->writeln("User : " . $rettweet->user->screen_name);
-          
-          
-          $result_rt = $this->callApiMyskreen($tweet['hashtag'], $rettweet->user->screen_name);
-          $this->sendResponse($id, $rettweet->user->screen_name, $result->tweet);
-        }
-      } else {
-        $output->writeln($result->error . ' : ' . $tweet['hashtag']);
-      }
-    }
-  }
+		$status = $this->tweeter->post('statuses/update', array(
+				'in_reply_to_status_id' => $id,
+				'status' => $message
+		));
 
-  protected function sendResponse($id,$user,$text) {
-    $message = mb_strcut(sprintf("@%s %s",$user,$text), 0, 139, 'UTF-8');
-    $this->output->writeln("Send response : " . $message);
+		print_r($status);
 
-    $status = $this->tweeter->post('statuses/update', array(
-        'in_reply_to_status_id' => $id,
-        'status' => $message
-    ));
+	}
 
-    print_r($status);
+	/**
+	 * 
+	 * @param string $hashtag
+	 * @return type
+	 */
+	protected function callApiMyskreen($hashtag, $user=null) {
+		$since = time() - 8*24*3600;
+		$api = 'http://api.myskreen.com/api/1';
+		$url = $api . '/hashtag/program/' . $hashtag . '.json?since='.$since.'&user='.$user;
+		$this->output->writeln($url);
+		//$client = new Client();
+		//$client->request('GET', $url);
+		//$response = $client->getResponse()->getContent();
+		// Parse reponse json to stdclass.
+		//$response = json_decode($response);
+		$this->container = $this->getApplication()->getKernel()->getContainer();
+		$api	 = new ApiManager($this->container->getParameter('kernel.environment'), '.json');
+		$response = $api->fetch('hashtag/program/' . $hashtag, array(
+									'since' => $since,
+									'user' => $user
+							));
+		//echo "\n\n".$api->url;
+		//print_r($response);
+		return $response;
+	}
 
-  }
+	protected function callApiTwitter() {
+		$token_credentials = array(
+				'consumer_key' => 'JSuauKd6CCPrURhSXn3hWQ',
+				'consumer_secret' => 'nfY0OE20cEbyx54e83e72dTh2zFqPd3sUaS0k00IP0',
+				'oauth_token' => '944336262-Xvw2ooHGK6CqipizpH1tgW5xBX6TNqUDChRsRHby',
+				'oauth_token_secret' => '3kPZjKJhcHUY3Dmb3qbTApXGgL9GTR6jqFnjdBvIRc'
+		);
 
-  /**
-   * 
-   * @param string $hashtag
-   * @return type
-   */
-  protected function callApiMyskreen($hashtag, $user=null) {
-    $since = time() - 8*24*3600;
-    $api = 'http://api.myskreen.com/api/1';
-    $url = $api . '/hashtag/program/' . $hashtag . '.json?since='.$since.'&user='.$user;
-    $this->output->writeln($url);
-    //$client = new Client();
-    //$client->request('GET', $url);
-    //$response = $client->getResponse()->getContent();
-    // Parse reponse json to stdclass.
-    //$response = json_decode($response);
-    $this->container = $this->getApplication()->getKernel()->getContainer();
-    $api   = new ApiManager($this->container->getParameter('kernel.environment'), '.json');
-    $response = $api->fetch('hashtag/program/' . $hashtag, array(
-                  'since' => $since,
-                  'user' => $user
-              ));
-    //echo "\n\n".$api->url;
-    //print_r($response);
-    return $response;
-  }
+		try {
+			$connection = new TwitterOAuth(
+											$token_credentials['consumer_key'],
+											$token_credentials['consumer_secret'],
+											$token_credentials['oauth_token'],
+											$token_credentials['oauth_token_secret']);
 
-  protected function callApiTwitter() {
-    $token_credentials = array(
-        'consumer_key' => 'JSuauKd6CCPrURhSXn3hWQ',
-        'consumer_secret' => 'nfY0OE20cEbyx54e83e72dTh2zFqPd3sUaS0k00IP0',
-        'oauth_token' => '944336262-Xvw2ooHGK6CqipizpH1tgW5xBX6TNqUDChRsRHby',
-        'oauth_token_secret' => '3kPZjKJhcHUY3Dmb3qbTApXGgL9GTR6jqFnjdBvIRc'
-    );
+			$connection->host = 'https://api.twitter.com/1.1/';
 
-    try {
-      $connection = new TwitterOAuth(
-                      $token_credentials['consumer_key'],
-                      $token_credentials['consumer_secret'],
-                      $token_credentials['oauth_token'],
-                      $token_credentials['oauth_token_secret']);
-
-      $connection->host = 'https://api.twitter.com/1.1/';
-
-      //print_r($content);
-      return $connection;
-    } catch (\Exception $ex) {
-      throw new \Exception($ex);
-    }
-  }
+			//print_r($content);
+			return $connection;
+		} catch (\Exception $ex) {
+			throw new \Exception($ex);
+		}
+	}
 
 }
 
