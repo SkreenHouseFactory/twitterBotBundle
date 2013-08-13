@@ -1,0 +1,38 @@
+{
+    "name":        "SkreenHouseFactory/twitterBotBundle",
+    "type":        "symfony-bundle",
+    "description": "Symfony2 twitter bot bundle mySkreen.",
+    "keywords":    ["mySkreen", "bundle"],
+    "homepage":    "http://github.com/SkreenHouseFactory/twitterBotBundle",
+    "license":     "Private",
+
+    "authors": [
+        {
+            "name": "mySkreen",
+            "homepage": "http://myskreen.com"
+        }
+    ],
+
+    "require": {
+        "php":                      ">=5.3.2",
+        "symfony/framework-bundle": ">=2.3,<2.4-dev",
+        "symfony/yaml":             ">=2.3,<2.4-dev",
+        "twig/twig":                ">=1.6.5"
+    },
+
+    "require-dev": {
+    },
+
+    "repositories": [
+    ],
+
+    "minimum-stability": "dev",
+
+    "autoload": {
+        "psr-0": {
+            "SkreenHouseFactory\\twitterBotBundle": "."
+        }
+    },
+
+    "target-dir": "SkreenHouseFactory/twitterBotBundle"
+}
